@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/codegangsta/cli"
 	. "github.com/leochu/gormeter/summary/stats"
@@ -16,36 +17,45 @@ import (
 )
 
 func GenerateSummary(c *cli.Context) {
-	path := c.String("path")
-	if path == "" {
-		os.Exit(1)
-	}
+	inDir, outDir := getPaths(c)
 
-	jsonFormat := c.Bool("json")
-
-	fileInfos, err := ioutil.ReadDir(path)
+	fileInfos, err := ioutil.ReadDir(inDir)
 	if err != nil {
-		fmt.Printf("Failed to open directory %s: %s\n", path, err.Error())
+		fmt.Printf("Failed to open directory %s: %s\n", inDir, err.Error())
 		os.Exit(1)
 	}
+
+	if !isDirExist(outDir) {
+		err := os.Mkdir(outDir, os.ModePerm)
+		check(err)
+	}
+	outPath := fmt.Sprintf("%ssummary-%d.log", outDir, time.Now().Unix())
+
+	f, err := os.Create(outPath)
+	check(err)
+
+	defer f.Close()
+
+	w := bufio.NewWriter(f)
 
 	for _, fileInfo := range fileInfos {
 		fileName := fileInfo.Name()
 
-		if !strings.HasPrefix(fileName, ".") {
-			if !strings.HasSuffix(path, "/") {
-				path += "/"
-			}
-			processFile(path+fileName, jsonFormat)
+		if !fileInfo.IsDir() && !strings.HasPrefix(fileName, ".") {
+			processFile(fileName, inDir, w)
 		}
 	}
+
+	contents, _ := ioutil.ReadFile(outPath)
+	println(string(contents))
 }
 
-func processFile(fileName string, jsonFormat bool) {
-	data, err := ioutil.ReadFile(fileName)
+func processFile(fileName string, inDir string, writer *bufio.Writer) {
+	filePath := inDir + fileName
+	data, err := ioutil.ReadFile(filePath)
 
 	if err != nil {
-		fmt.Printf("Failed to open file %s: %s\n", fileName, err.Error())
+		fmt.Printf("Failed to open file %s: %s\n", filePath, err.Error())
 		os.Exit(1)
 	}
 
@@ -67,9 +77,7 @@ func processFile(fileName string, jsonFormat bool) {
 		stats = append(stats, responseTime)
 	}
 
-	fmt.Printf("Print the summary of file \"%v\":\n", fileName)
-
-	printSummary(fileName, stats, jsonFormat)
+	generateSummary(fileName, stats, writer)
 }
 
 func getResponseTime(record string) string {
@@ -77,47 +85,14 @@ func getResponseTime(record string) string {
 	return columns[1]
 }
 
-func printSummary(fileName string, input []float64, jsonFormat bool) {
-	summary := getSummary(input)
+func generateSummary(fileName string, stats []float64, writer *bufio.Writer) {
+	summary := getSummary(stats)
+	summary.Id = fileName
 
-	f, err := os.Create(fileName + "summary")
-	check(err)
+	buff, _ := json.Marshal(summary)
+	fmt.Fprintf(writer, "%s\n", string(buff))
 
-	defer f.Close()
-	w := bufio.NewWriter(f)
-
-	if !jsonFormat {
-		fmt.Fprintf(w, "Min: %.f\n", summary.Min)                                                // 1.1
-		fmt.Fprintf(w, "Max: %.f\n", summary.Max)                                                // 1.1
-		fmt.Fprintf(w, "Sum: %.f\n", summary.Sum)                                                // 1.1
-		fmt.Fprintf(w, "Mean: %.f\n", summary.Mean)                                              // 1.1
-		fmt.Fprintf(w, "Median: %.f\n", summary.Median)                                          // 1.1
-		fmt.Fprintf(w, "Mode: %v\n", summary.Mode)                                               // 1.1
-		fmt.Fprintf(w, "PopulationVariance: %f\n", summary.PopulationVariance)                   // 1.1
-		fmt.Fprintf(w, "SampleVariance: %f\n", summary.SampleVariance)                           // 1.1
-		fmt.Fprintf(w, "StandardDeviationPopulation: %f\n", summary.StandardDeviationPopulation) // 1.1
-		fmt.Fprintf(w, "StandardDeviationSample: %f\n", summary.StandardDeviationSample)         // 1.1
-
-		fmt.Fprintf(w, "Percentile of 99%%: %v\n", summary.PercentileOf99)                       // 1.1
-		fmt.Fprintf(w, "PercentileNearestRank of 99%%: %v\n", summary.PercentileNearestRankOf99) // 1.1
-
-		fmt.Fprintf(w, "Percentile of 95%%: %v\n", summary.PercentileOf95)                       // 1.1
-		fmt.Fprintf(w, "PercentileNearestRank of 95%%: %v\n", summary.PercentileNearestRankOf95) // 1.1
-
-		fmt.Fprintf(w, "Percentile of 90%%: %v\n", summary.PercentileOf90)                       // 1.1
-		fmt.Fprintf(w, "PercentileNearestRank of 90%%: %v\n", summary.PercentileNearestRankOf90) // 1.1
-
-		fmt.Fprintf(w, "Percentile of 85%%: %v\n", summary.PercentileOf85)                       // 1.1
-		fmt.Fprintf(w, "PercentileNearestRank of 85%%: %v\n", summary.PercentileNearestRankOf85) // 1.1
-	} else {
-		buff, _ := json.Marshal(summary)
-		fmt.Fprintf(w, "%s", string(buff))
-	}
-
-	w.Flush()
-
-	contents, _ := ioutil.ReadFile(fileName + "summary")
-	println(string(contents))
+	writer.Flush()
 }
 
 func getSummary(input []float64) Summary {
@@ -159,4 +134,31 @@ func check(e error) {
 	if e != nil {
 		panic(e)
 	}
+}
+
+func getPaths(c *cli.Context) (string, string) {
+	path := c.String("path")
+	if path == "" {
+		os.Exit(1)
+	}
+
+	if !strings.HasSuffix(path, "/") {
+		path += "/"
+	}
+
+	outDir := c.String("out")
+	if outDir == "" {
+		outDir = path + "summary/"
+	}
+
+	if !strings.HasSuffix(outDir, "/") {
+		outDir += "/"
+	}
+
+	return path, outDir
+}
+
+func isDirExist(dir string) bool {
+	_, err := os.Stat(dir)
+	return !os.IsNotExist(err)
 }

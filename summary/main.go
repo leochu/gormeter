@@ -13,9 +13,9 @@ var flags = []cli.Flag{
 		Name:  "path",
 		Usage: "Path of log files (required)",
 	},
-	cli.BoolFlag{
-		Name:  "json",
-		Usage: "Output in json format",
+	cli.StringFlag{
+		Name:  "out",
+		Usage: "Path of out put directory",
 	},
 }
 

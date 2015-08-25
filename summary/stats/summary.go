@@ -1,6 +1,7 @@
 package stats
 
 type Summary struct {
+	Id                          string    `json:"id"`
 	Min                         float64   `json:"min"`
 	Max                         float64   `json:"max"`
 	Sum                         float64   `json:"sum"`

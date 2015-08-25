@@ -1,7 +1,10 @@
 package commands
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,101 +18,99 @@ import (
 func PerformAnalysis(c *cli.Context) {
 	path := c.String("path")
 	if path == "" {
-		httpSummaryFile := c.String("httpPath")
-		if httpSummaryFile == "" {
-			fmt.Printf("Required option --httpPath not provided\n")
+		os.Exit(1)
+	}
+
+	if !strings.HasSuffix(path, "/") {
+		path += "/"
+	}
+
+	fileInfos, err := ioutil.ReadDir(path)
+	if err != nil {
+		fmt.Printf("Failed to open directory %s: %s\n", path, err.Error())
+		os.Exit(1)
+	}
+
+	summaryMap := make(map[string]Summary)
+	for _, fileInfo := range fileInfos {
+		fileName := fileInfo.Name()
+
+		data, err := ioutil.ReadFile(path + fileName)
+		if err != nil {
+			fmt.Printf("Failed to open file %s: %s\n", fileName, err.Error())
 			os.Exit(1)
 		}
 
-		httpsSummaryFile := c.String("httpsPath")
-		if httpsSummaryFile == "" {
-			fmt.Printf("Required option --httpsPath not provided\n")
-			os.Exit(1)
-		}
-		performAnalysisOnFile(httpSummaryFile, httpsSummaryFile)
-	} else {
-		fileInfos, err := ioutil.ReadDir(path)
-		if err != nil {
-			fmt.Printf("Failed to open directory %s: %s\n", path, err.Error())
-			os.Exit(1)
-		}
-		re, err := regexp.Compile(".*https.*logsummary")
-		if err != nil {
-			fmt.Printf("Error:%s\n", err.Error())
-			os.Exit(1)
-		}
+		scanner := bufio.NewScanner(bytes.NewReader(data))
 
-		fileNameMap := make(map[string]string)
-		for _, fileInfo := range fileInfos {
-			fileName := fileInfo.Name()
-			if re.Match([]byte(fileName)) {
-				httpFileName := getMatchingFileName(fileName, fileInfos)
-				if httpFileName == "" {
-					fmt.Printf("No matching file for %s\n", fileName)
-				} else {
-					fileNameMap[fileName] = httpFileName
-				}
+		for scanner.Scan() {
+			record := scanner.Bytes()
+
+			// fmt.Println(string(record))
+			var summary Summary
+			err = json.Unmarshal(record, &summary)
+			if err != nil {
+				fmt.Printf("Failed to unmarshal data in file %s: %s\n", fileName, err.Error())
+				os.Exit(1)
 			}
-		}
 
-		for httpsSummaryFile, httpSummaryFile := range fileNameMap {
-			fmt.Printf("Performing analysis on %s and %s\n", httpsSummaryFile, httpSummaryFile)
-			performAnalysisOnFile(path+"/"+httpSummaryFile, path+"/"+httpsSummaryFile)
+			summaryMap[summary.Id] = summary
+		}
+	}
+
+	for fileName, summary := range summaryMap {
+		if isHttpsFile(fileName) {
+			httpSummary, err := getHTTPTestSummary(fileName, summaryMap)
+			if err != nil {
+				fmt.Printf("Couldn't find HTTP file for %s\n", fileName)
+				continue
+			}
+
+			fmt.Printf("Performing analysis on %s\n", fileName)
+			performAnalysis(httpSummary, summary)
 		}
 	}
 }
 
-func performAnalysisOnFile(httpSummaryFile, httpsSummaryFile string) {
-	httpSummary := unmarshalSummary(httpSummaryFile)
-	httpsSummary := unmarshalSummary(httpsSummaryFile)
+func isHttpsFile(fileName string) bool {
+	re, err := regexp.Compile(".*https.*log")
+	if err != nil {
+		fmt.Printf("Error:%s\n", err.Error())
+		os.Exit(1)
+	}
 
+	return re.Match([]byte(fileName))
+}
+
+func performAnalysis(httpSummary, httpsSummary Summary) {
 	changePercent := calculatePercentChange(httpSummary.Mean, httpsSummary.Mean)
 	fmt.Printf("The mean response time increased by: %.2f%%\n", changePercent)
 
 	changePercent = calculatePercentChange(httpSummary.Median, httpsSummary.Median)
-	fmt.Printf("The median response time increased by: %.2f%%\n", changePercent)
-
-	fmt.Println()
+	fmt.Printf("The median response time increased by: %.2f%%\n\n", changePercent)
 }
 
-func getMatchingFileName(fileName string, fileInfos []os.FileInfo) string {
-	tmpFileName := strings.Replace(fileName, "https", "http", 1)
-	fileNameElements := strings.Split(tmpFileName, "-")
+func getHTTPTestSummary(httpsTest string, summaryMap map[string]Summary) (Summary, error) {
+	httpTest := strings.Replace(httpsTest, "https", "http", 1)
+
+	fileNameElements := strings.Split(httpTest, "-")
 	len := len(fileNameElements) - 1
-	httpFileNameExp := strings.Join(fileNameElements[:len], "-") + ".*logsummary"
+	httpFileNameExp := strings.Join(fileNameElements[:len], "-") + ".*log"
 	re, err := regexp.Compile(httpFileNameExp)
 	if err != nil {
 		fmt.Printf("Error in compiling regexp:%s\n", err.Error())
 		os.Exit(1)
 	}
-	var httpFileName string
-	for _, fileInfo := range fileInfos {
-		name := fileInfo.Name()
-		if re.Match([]byte(name)) {
-			httpFileName = name
-			break
+
+	for fileName, summary := range summaryMap {
+		if re.Match([]byte(fileName)) {
+			return summary, nil
 		}
 	}
-	return httpFileName
+
+	return Summary{}, errors.New("http file not found")
 }
 
 func calculatePercentChange(value1, value2 float64) float64 {
 	return 100 * ((value2 - value1) / value1)
-}
-
-func unmarshalSummary(fileName string) Summary {
-	var summary Summary
-	data, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		fmt.Printf("Failed to open file %s: %s\n", fileName, err.Error())
-		os.Exit(1)
-	}
-
-	err = json.Unmarshal(data, &summary)
-	if err != nil {
-		fmt.Printf("Failed to unmarshal data in file %s: %s\n", fileName, err.Error())
-		os.Exit(1)
-	}
-
-	return summary
 }
