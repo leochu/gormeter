@@ -139,6 +139,7 @@ func check(e error) {
 func getPaths(c *cli.Context) (string, string) {
 	path := c.String("path")
 	if path == "" {
+		fmt.Println("Please provide --path parameter")
 		os.Exit(1)
 	}
 
