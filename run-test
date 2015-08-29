@@ -17,7 +17,7 @@ protocol=$4
 keep_alive=$5
 log_prefix=$6
 
-if [$keep_alive = "true"]
+if [[ $keep_alive = "true" ]];
 then
   alive_flag="keepAlive"
 else  
@@ -29,7 +29,7 @@ num_threads=(10 25 50 100)
 for num_thread in ${num_threads[*]}; do 
     jmeter -n -t gormeter-general.jmx \
       -Jnum_threads=$num_thread \
-      -Jnum_loops=$((10000/$num_thread)) \
+      -Jnum_loops=$((40000/$num_thread)) \
       -Jdomain=$domain \
       -Jport=$port \
       -Jhost=$host \
