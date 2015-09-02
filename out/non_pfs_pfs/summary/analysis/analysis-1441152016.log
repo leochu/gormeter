@@ -1,0 +1,16 @@
+Performing analysis on pfs_gorouter_gormeter_https_keepAlive_100t_1441149743.log
+The mean response time increased by: 0.36% (From 314.05 to 315.18)
+The median response time increased by: 0.37% (From 272 to 273)
+
+Performing analysis on pfs_gorouter_gormeter_https_keepAlive_10t_1441149383.log
+The mean response time increased by: -0.76% (From 26.56 to 26.36)
+The median response time increased by: 0.00% (From 26 to 26)
+
+Performing analysis on pfs_gorouter_gormeter_https_keepAlive_25t_1441149491.log
+The mean response time increased by: 0.22% (From 73.93 to 74.10)
+The median response time increased by: -28.79% (From 66 to 47)
+
+Performing analysis on pfs_gorouter_gormeter_https_keepAlive_50t_1441149616.log
+The mean response time increased by: 7.93% (From 143.19 to 154.55)
+The median response time increased by: 102.90% (From 69 to 140)
+

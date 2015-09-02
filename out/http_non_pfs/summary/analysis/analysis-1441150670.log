@@ -1,0 +1,16 @@
+Performing analysis on https_gorouter_gormeter_https_keepAlive_25t_1441146038.log
+The mean response time increased by: -24.18% (From 97.51 to 73.93)
+The median response time increased by: -17.50% (From 80 to 66)
+
+Performing analysis on https_gorouter_gormeter_https_keepAlive_50t_1441146196.log
+The mean response time increased by: -14.25% (From 166.99 to 143.19)
+The median response time increased by: -51.06% (From 141 to 69)
+
+Performing analysis on https_gorouter_gormeter_https_keepAlive_100t_1441146332.log
+The mean response time increased by: -5.68% (From 332.96 to 314.05)
+The median response time increased by: -11.69% (From 308 to 272)
+
+Performing analysis on https_gorouter_gormeter_https_keepAlive_10t_1441145919.log
+The mean response time increased by: -9.06% (From 29.21 to 26.56)
+The median response time increased by: -7.14% (From 28 to 26)
+
