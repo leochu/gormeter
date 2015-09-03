@@ -8,7 +8,6 @@ jmeter -n -t `test-plan-path` -l `output-path`
 - `num_loops`: the number of loops that JMeter should run.
 - `num_threads`: the number of threads that JMeter should run.
 - `protocol`: the protocol of the HTTPSampler (http or https)
-- `keep_alive`: keeps the connection alive through the loops
 - `host`: The host to specify in the `Host:` header
 - `domain`: The domain that JMeter will attempt to connect to.
 - `port`: The port that JMeter will attempt to connect to.
