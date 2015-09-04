@@ -40,6 +40,9 @@ func PerformAnalysis(c *cli.Context) {
 		}
 
 		fileName := fileInfo.Name()
+		if !strings.Contains(fileName, "summary") {
+			continue
+		}
 
 		data, err := ioutil.ReadFile(path + fileName)
 		if err != nil {
@@ -121,7 +124,7 @@ func performAnalysis(fileName string, httpSummary, httpsSummary Summary, writer 
 }
 
 func getHTTPTestSummary(httpsTest string, summaryMap map[string]Summary) (Summary, error) {
-	httpTest := strings.Replace(httpsTest, "https", "http", 1)
+	httpTest := strings.Replace(httpsTest, "https", "http", -1)
 
 	sep := "_"
 

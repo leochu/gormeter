@@ -2,11 +2,11 @@
 
 function usage {
   echo "Incorrect Arugments"
-  echo "$0 [DOMAIN] [PORT] [HOST] [PROTOCOL] [NUM_THREADS] [LOG_PREFIX]"
+  echo "$0 [DOMAIN] [PORT] [HOST] [PROTOCOL] [NUM_THREADS] [NUM_REQUESTS] [LOG_PREFIX]"
   exit 1
 }
 
-if [[ $# -ne 6 ]]; 
+if [[ $# -ne 7 ]];
       then usage
 fi
 
@@ -15,14 +15,15 @@ port=$2
 host=$3
 protocol=$4
 num_threads=$5
-log_prefix=$6
+num_reqs=$6
+log_prefix=$7
 
 
 jmeter -n -t gormeter-general.jmx \
   -Jnum_threads=$num_threads \
-  -Jnum_loops=$((80000/$num_threads)) \
+  -Jnum_loops=$(($num_reqs/$num_threads)) \
   -Jdomain=$domain \
   -Jport=$port \
   -Jhost=$host \
   -Jprotocol=$protocol \
-  -l ./out/${log_prefix}_gormeter_${protocol}_${num_threads}t_`date +%s`.log
+  -l ./out/${log_prefix}_gormeter_${protocol}_${num_threads}t_${num_reqs}r_`date +%s`.log

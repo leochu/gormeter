@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +20,7 @@ import (
 
 func GenerateSummary(c *cli.Context) {
 	inDir, outDir := getPaths(c)
+	xml := c.Bool("xml")
 
 	fileInfos, err := ioutil.ReadDir(inDir)
 	if err != nil {
@@ -33,7 +36,6 @@ func GenerateSummary(c *cli.Context) {
 
 	f, err := os.Create(outPath)
 	check(err)
-
 	defer f.Close()
 
 	w := bufio.NewWriter(f)
@@ -42,7 +44,7 @@ func GenerateSummary(c *cli.Context) {
 		fileName := fileInfo.Name()
 
 		if !fileInfo.IsDir() && !strings.HasPrefix(fileName, ".") {
-			processFile(fileName, inDir, w)
+			processFile(fileName, inDir, outDir, w, xml)
 		}
 	}
 
@@ -50,7 +52,7 @@ func GenerateSummary(c *cli.Context) {
 	println(string(contents))
 }
 
-func processFile(fileName string, inDir string, writer *bufio.Writer) {
+func processFile(fileName string, inDir string, outDir string, writer *bufio.Writer, xml bool) {
 	filePath := inDir + fileName
 	data, err := ioutil.ReadFile(filePath)
 
@@ -66,7 +68,11 @@ func processFile(fileName string, inDir string, writer *bufio.Writer) {
 	for scanner.Scan() {
 		record := scanner.Text()
 
-		responseTimeStr := getResponseTime(record)
+		responseTimeStr, err := getResponseTime(record, xml)
+		if err != nil {
+			fmt.Println("Could not parse: ", record)
+			continue
+		}
 
 		responseTime, err := strconv.ParseFloat(responseTimeStr, 64)
 		if err != nil {
@@ -78,11 +84,35 @@ func processFile(fileName string, inDir string, writer *bufio.Writer) {
 	}
 
 	generateSummary(fileName, stats, writer)
+	outputStats(outDir, fileName, stats)
 }
 
-func getResponseTime(record string) string {
+func outputStats(outDir string, fileName string, stats []float64) {
+	outPathLog := fmt.Sprintf("%sresponseTime-%s-%d.log", outDir, fileName, time.Now().Unix())
+	f_log, err := os.Create(outPathLog)
+	check(err)
+	defer f_log.Close()
+
+	w_log := bufio.NewWriter(f_log)
+
+	for _, time := range stats {
+		w_log.Write([]byte(fmt.Sprintf("%f\n", time)))
+	}
+}
+
+func getResponseTime(record string, xml bool) (string, error) {
+	if xml {
+		re := regexp.MustCompile(" t=\"([0-9]+)\" ")
+		match := re.FindStringSubmatch(record)
+		if len(match) != 2 {
+			return "", errors.New("Could not parse response time")
+		}
+		return match[1], nil
+	}
+
+	// This is used on OSX for CSV
 	columns := strings.SplitN(record, ",", 3)
-	return columns[1]
+	return columns[1], nil
 }
 
 func generateSummary(fileName string, stats []float64, writer *bufio.Writer) {

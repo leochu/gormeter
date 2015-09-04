@@ -17,6 +17,10 @@ var flags = []cli.Flag{
 		Name:  "out",
 		Usage: "Path of out put directory",
 	},
+	cli.BoolFlag{
+		Name:  "xml",
+		Usage: "Specifies the xml format for log files",
+	},
 }
 
 var perfFlags = []cli.Flag{
